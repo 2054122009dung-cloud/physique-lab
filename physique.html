@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>OmniHealth Photo Scan</title>
+<style>
+:root{color-scheme:dark;--bg:#0c1118;--panel:#141b25;--line:#243041;--tx:#e8edf3;--mut:#8b9bb0;--ac:#38d0b0;--warn:#f0b34a;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:1100px;margin:0 auto;padding:20px 16px 48px}
+h1{font-size:22px;margin:0 0 4px}h2{font-size:15px;margin:0 0 10px}
+p.sub{color:var(--mut);margin:0 0 18px;max-width:70ch}
+.grid{display:grid;gap:16px;grid-template-columns:1fr 1fr}
+@media(max-width:760px){.grid{grid-template-columns:1fr}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:end;margin-bottom:16px}
+label{display:block;color:var(--mut);font-size:12px;margin-bottom:3px}
+input,select{background:#0c1118;border:1px solid var(--line);color:var(--tx);border-radius:6px;padding:7px 9px;font:inherit;width:110px}
+input[type=file]{width:100%}
+button{background:var(--line);color:var(--tx);border:0;border-radius:6px;padding:7px 12px;font:inherit;cursor:pointer}
+button:hover{background:#2f3e55}button.pri{background:var(--ac);color:#04231c;font-weight:600}
+:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+canvas{width:100%;display:block;margin-top:10px;border-radius:6px;background:#0a0e14;touch-action:none;cursor:crosshair}
+.prompt{margin-top:8px;color:var(--ac);min-height:21px}
+table{width:100%;border-collapse:collapse}
+td,th{padding:5px 6px;border-bottom:1px solid var(--line);text-align:left;font-weight:400}
+th{color:var(--mut);font-size:12px}td:last-child,th:last-child{text-align:right;font-variant-numeric:tabular-nums}
+.res{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));margin-top:16px}
+.note{color:var(--mut);font-size:12px;margin-top:8px}.warn{color:var(--warn)}
+.big{font-size:12px;color:var(--mut)}
+.scorehead{display:flex;gap:18px;align-items:center;margin-bottom:14px}
+.bigscore{font-size:56px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums;min-width:90px;text-align:center}
+.grade{font-size:20px;font-weight:600}
+.live{color:var(--ac);font-size:11px;margin-left:6px}
+.bars{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px 24px}
+.bh{display:flex;justify-content:space-between;gap:8px}.bh b{font-variant-numeric:tabular-nums}
+.bt{height:8px;background:#0a0e14;border-radius:4px;overflow:hidden;margin:4px 0}
+.bf{height:100%;border-radius:4px}
+.bv{font-size:12px;color:var(--tx);font-variant-numeric:tabular-nums}.bi{font-size:11px;color:var(--mut)}
+ol.fl{margin:0;padding-left:20px;display:grid;gap:12px}
+.fh{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.fs{margin-left:auto;color:var(--mut);font-variant-numeric:tabular-nums}
+.fm{color:var(--mut);font-size:12px}.fx{font-size:13px;margin-top:2px}
+.tag{font-size:11px;padding:1px 8px;border-radius:10px;color:#0c1118;font-weight:600}
+.t-maj{background:#ef6a6a}.t-mod{background:var(--warn)}.t-min{background:#8fd3c4}.t-ok{background:var(--ac)}
+.est{font-size:10px;color:var(--warn)}
+@keyframes fl{from{background:rgba(56,208,176,.5)}to{background:transparent}}
+.chg{animation:fl .9s ease-out}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Photo body scan + aesthetic score</h1>
+<p class="sub">Upload a front photo (the side photo is optional), place the landmark dots, and enter your neck circumference once. You get an aesthetic score, your top 5 physique flaws, and every width, girth and volume. All numbers update live as you drag a dot.</p>
+
+<div class="panel row" style="margin-bottom:16px">
+  <div><label for="neck">Neck circumference</label><input id="neck" type="number" step="0.1" value="38"></div>
+  <div><label for="unit">Units</label><select id="unit"><option value="cm">cm</option><option value="in">inches</option></select></div>
+  <div><label for="sex">Sex (for body fat)</label><select id="sex"><option value="m">Male</option><option value="f">Female</option></select></div>
+  <div><label for="wt">Weight (optional)</label><input id="wt" type="number" step="0.1" placeholder="kg / lb"></div>
+  <div><label for="hgt">Height (recommended)</label><input id="hgt" type="number" step="0.1" placeholder="cm / in"></div>
+  <div><label for="age">Age (optional)</label><input id="age" type="number" placeholder="years"></div>
+</div>
+
+<div class="note" id="aStat" style="margin:0 0 10px">Auto-detect places the dots for you (pose model + body silhouette). Check them and drag any that are off. The first run downloads about 30 MB of model data.</div>
+<div class="grid">
+  <div class="panel"><h2>Front photo</h2><input type="file" accept="image/*" id="fF" aria-label="Front photo">
+    <canvas id="cF" width="400" height="500"></canvas><div class="prompt" id="pF">Upload a front photo.</div>
+    <div class="row" style="margin:8px 0 0"><button class="pri" id="aF">Auto-detect</button><button id="uF">Undo</button><button id="rF">Reset dots</button></div></div>
+  <div class="panel"><h2>Side photo <span style="color:var(--mut);font-weight:400">(optional, sharpens depth)</span></h2><input type="file" accept="image/*" id="fS" aria-label="Side photo">
+    <canvas id="cS" width="400" height="500"></canvas><div class="prompt" id="pS">Optional: upload a side photo.</div>
+    <div class="row" style="margin:8px 0 0"><button class="pri" id="aS">Auto-detect</button><button id="uS">Undo</button><button id="rS">Reset dots</button></div></div>
+</div>
+<p class="note">Click to place the next dot; drag any dot to fine-tune. Photos stay in your browser. Best results: stand straight, relaxed, arms slightly away from the body, camera at chest height, same distance for both photos, fitted clothing, flexed or relaxed arm consistently.</p>
+
+<div id="out" class="res"></div>
+</div>
+
+<script>
+const FP=[["Top of head",0],["Bottom of chin (lowest point of the jaw)",0],["Head, left edge",0],["Head, right edge",0],["Neck, left edge (below the jaw, narrowest point)",0],["Neck, right edge (same height)",0],["Left shoulder (outer deltoid)",0],["Right shoulder (outer deltoid)",0],["Chest, left edge (armpit level)",0],["Chest, right edge",0],["Waist, left edge (navel level)",0],["Waist, right edge",0],["Hips, left edge (widest)",0],["Hips, right edge",0],["LEFT arm bicep: outer edge (thickest point)",0],["SAME left arm bicep: inner edge (same height, same arm only)",0],["SAME left arm forearm: outer edge (thickest point)",0],["SAME left arm forearm: inner edge (same arm only)",0],["Floor under feet",0]];
+const SP=[["Top of head"],["Bottom of chin"],["Neck, front"],["Neck, back"],["Chest, front (nipple level)"],["Chest, back"],["Belly, front (navel level)"],["Belly, back"],["Hips, front"],["Hips, back"]];
+const FL=[[0,1],[2,3],[4,5],[6,7],[8,9],[10,11],[12,13],[14,15],[16,17]], SL=[[0,1],[2,3],[4,5],[6,7],[8,9]];
+const $=id=>document.getElementById(id);
+
+function View(cv,fileEl,promptEl,names,links){
+  const v={pts:[],img:null,s:1,drag:-1};
+  const ctx=cv.getContext('2d');
+  function draw(){
+    ctx.clearRect(0,0,cv.width,cv.height);
+    if(v.img)ctx.drawImage(v.img,0,0,cv.width,cv.height);
+    ctx.lineWidth=1.5;ctx.strokeStyle='rgba(56,208,176,.8)';
+    links.forEach(([a,b])=>{if(v.pts[a]&&v.pts[b]){ctx.beginPath();ctx.moveTo(v.pts[a][0]*v.s,v.pts[a][1]*v.s);ctx.lineTo(v.pts[b][0]*v.s,v.pts[b][1]*v.s);ctx.stroke()}});
+    v.pts.forEach((p,i)=>{ctx.fillStyle='#38d0b0';ctx.beginPath();ctx.arc(p[0]*v.s,p[1]*v.s,5,0,7);ctx.fill();ctx.fillStyle='#fff';ctx.font='11px system-ui';ctx.fillText(i+1,p[0]*v.s+7,p[1]*v.s-6)});
+    promptEl.textContent=!v.img?'Upload a photo.':v.pts.length<names.length?`Dot ${v.pts.length+1}/${names.length}: ${names[v.pts.length][0]}`:'All dots placed. Drag to adjust.';
+    calc();
+  }
+  function pos(e){const r=cv.getBoundingClientRect();return[(e.clientX-r.left)*cv.width/r.width/v.s,(e.clientY-r.top)*cv.height/r.height/v.s]}
+  cv.addEventListener('pointerdown',e=>{
+    if(!v.img)return;const p=pos(e);
+    const near=v.pts.findIndex(q=>Math.hypot(q[0]-p[0],q[1]-p[1])*v.s<12);
+    if(near>=0){v.drag=near;cv.setPointerCapture(e.pointerId)}
+    else if(v.pts.length<names.length){v.pts.push(p);draw()}
+  });
+  cv.addEventListener('pointermove',e=>{if(v.drag>=0){v.pts[v.drag]=pos(e);draw()}});
+  cv.addEventListener('pointerup',()=>v.drag=-1);cv.addEventListener('pointercancel',()=>v.drag=-1);
+  fileEl.addEventListener('change',()=>{
+    const f=fileEl.files[0];if(!f)return;const im=new Image();
+    im.onload=()=>{v.img=im;cv.width=400;cv.height=Math.round(400*im.height/im.width);v.s=1;v.pts=[];draw()};
+    im.onerror=()=>{promptEl.textContent='Could not load this image. Try a JPG or PNG.'};const fr=new FileReader();fr.onload=()=>{im.src=fr.result};fr.readAsDataURL(f);
+  });
+  v.undo=()=>{v.pts.pop();draw()};v.reset=()=>{v.pts=[];draw()};v.draw=draw;
+  if(fileEl.files&&fileEl.files[0])setTimeout(()=>fileEl.dispatchEvent(new Event('change')),0);
+  return v;
+}
+const F=View($('cF'),$('fF'),$('pF'),FP,FL), S=View($('cS'),$('fS'),$('pS'),SP,SL);
+$('uF').onclick=F.undo;$('rF').onclick=F.reset;$('uS').onclick=S.undo;$('rS').onclick=S.reset;
+['neck','unit','sex','wt','age','hgt'].forEach(i=>$(i).addEventListener('input',calc));
+
+const d=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
+const ram=(a,b)=>Math.PI*(3*(a+b)-Math.sqrt((3*a+b)*(a+3*b)));
+const area=(a,b)=>Math.PI*a*b;
+const frus=(h,A1,A2)=>h/3*(A1+A2+Math.sqrt(A1*A2));
+
+let prev={};
+function calc(){
+  const out=$('out');
+  if(F.pts.length<FP.length){
+    out.innerHTML=`<div class="panel"><h2>Waiting for landmarks</h2><div class="big">Front: ${F.pts.length}/${FP.length} dots placed. The side photo is optional and only sharpens the depth estimates.</div></div>`;prev={};return}
+  const f=F.pts,s=S.pts,imp=$('unit').value==='in',sex=$('sex').value;
+  const useSide=s.length>=SP.length, sideStarted=!useSide&&s.length>0;
+  const neckInRaw=parseFloat($('neck').value),neckIn=neckInRaw>0?neckInRaw:(imp?15:38);
+  const neckCm=imp?neckIn*2.54:neckIn;
+  const fw=(i,j)=>Math.max(d(f[i],f[j]),0.5);
+  const k=useSide?fw(0,1)/Math.max(d(s[0],s[1]),0.5):1;   // side px -> front px (head height is the shared reference)
+  const sd=(i,j)=>Math.max(d(s[i],s[j])*k,0.5);
+  // depth: measured from the side photo, or assumed from typical depth/width ratios (front-only mode)
+  const DR={neck:.92,chest:.66,waist:.62,hips:.62};
+  const dp={neck:useSide?sd(2,3):fw(4,5)*DR.neck,chest:useSide?sd(4,5):fw(8,9)*DR.chest,waist:useSide?sd(6,7):fw(10,11)*DR.waist,hips:useSide?sd(8,9):fw(12,13)*DR.hips};
+  const scN=neckCm/ram(fw(4,5)/2,dp.neck/2);
+  const pxH=Math.max(Math.abs(f[18][1]-f[0][1]),1),hIn=parseFloat($('hgt').value);
+  const heightNeck=pxH*scN;
+  const sc=hIn>0?(imp?hIn*2.54:hIn)/pxH:scN;      // cm per front pixel; real height wins if given
+  const L=px=>px*sc;
+  const X={
+    neck:[L(fw(4,5)),L(dp.neck)],shoulders:[L(fw(6,7)),L(dp.chest)],
+    chest:[L(fw(8,9)),L(dp.chest)],waist:[L(fw(10,11)),L(dp.waist)],hips:[L(fw(12,13)),L(dp.hips)],
+    bicep:[L(fw(14,15)),L(fw(14,15))],forearm:[L(fw(16,17)),L(fw(16,17))]};
+  const G={},A={};
+  for(const n in X){G[n]=ram(X[n][0]/2,X[n][1]/2);A[n]=area(X[n][0]/2,X[n][1]/2)}
+  const y=(a,b)=>(f[a][1]+f[b][1])/2;
+  const hNC=L(Math.abs(y(8,9)-y(4,5))),hCW=L(Math.abs(y(10,11)-y(8,9))),hWH=L(Math.abs(y(12,13)-y(10,11)));
+  const V={nc:frus(hNC,A.neck,A.chest),cw:frus(hCW,A.chest,A.waist),wh:frus(hWH,A.waist,A.hips)};
+  const torso=V.nc+V.cw+V.wh;
+  const height=L(pxH);
+  const head=L(fw(2,3));
+
+  const len=v=>(imp?v/2.54:v).toFixed(1)+(imp?' in':' cm');
+  const ar=v=>(imp?v/6.4516:v).toFixed(1)+(imp?' in²':' cm²');
+  const vo=v=>imp?(v/16.387).toFixed(0)+' in³':(v/1000).toFixed(2)+' L';
+  const r=(x,y)=>(x/y).toFixed(2);
+  const names={neck:'Neck',shoulders:'Shoulders (bideltoid)',chest:'Chest',waist:'Waist / belly',hips:'Hips',bicep:'Upper arm',forearm:'Forearm'};
+  const est=useSide?'':' <span class="est">est.</span>';
+  const gRows=Object.keys(X).map(n=>`<tr><td>${names[n]}</td><td>${len(X[n][0])} × ${len(X[n][1])}${(!useSide&&n!=='bicep'&&n!=='forearm')?'*':''}</td><td>${len(G[n])}</td><td>${ar(A[n])}</td></tr>`).join('');
+
+  // derived health metrics
+  const whtr=G.waist/height,whr=G.waist/G.hips;
+  let bf;
+  if(sex==='m'){const x=G.waist-G.neck;bf=x>0?495/(1.0324-0.19077*Math.log10(x/2.54)+0.15456*Math.log10(height/2.54))-450:NaN}
+  else{const x=G.waist+G.hips-G.neck;bf=x>0?495/(1.29579-0.35004*Math.log10(x/2.54)+0.221*Math.log10(height/2.54))-450:NaN}
+  bf=Math.max(3,Math.min(60,bf));
+  const wtIn=parseFloat($('wt').value),age=parseFloat($('age').value);
+  let extra='',ffmi=NaN;
+  if(wtIn>0){
+    const w=imp?wtIn*0.453592:wtIn,hm=height/100,lbm=w*(1-bf/100),bmi=w/(hm*hm);ffmi=lbm/(hm*hm)+6.1*(1.8-hm);
+    const wu=v=>imp?(v*2.20462).toFixed(1)+' lb':v.toFixed(1)+' kg';
+    extra=`<tr><td>BMI</td><td>${bmi.toFixed(1)}</td></tr><tr><td>Lean mass</td><td>${wu(lbm)}</td></tr><tr><td>Fat mass</td><td>${wu(w-lbm)}</td></tr><tr><td>Normalized FFMI</td><td>${ffmi.toFixed(1)}</td></tr>`;
+    if(age>0){const b=10*w+6.25*height-5*age+(sex==='m'?5:-161);extra+=`<tr><td>BMR (Mifflin-St Jeor)</td><td>${Math.round(b)} kcal</td></tr><tr><td>Maintenance at 1.55×</td><td>${Math.round(b*1.55)} kcal</td></tr>`}
+  }
+
+  // ---------- aesthetic scoring (all ratios are scale-free) ----------
+  const cl=(x,a=0,b=100)=>Math.max(a,Math.min(b,x));
+  const lin=(v,bad,good)=>cl((v-bad)/(good-bad)*100);      // bad -> 0, good -> 100 (works in either direction)
+  const vt=X.shoulders[0]/X.waist[0], shH=X.shoulders[0]/height;
+  const headHR=fw(0,1)/pxH, headWR=fw(2,3)/fw(6,7), neckR=fw(4,5)/fw(2,3), hipR=fw(12,13)/fw(6,7);
+  let M=(G.bicep/height/0.22+G.chest/height/0.58+shH/0.29)/3;   // muscle-mass index: 1.0 = athletic ideal
+  const Mframe=M; if(ffmi>0)M=(M+ffmi/22)/2;
+  const massLab=M<0.80?'Too skinny':M<0.92?'Lean / slim':M<=1.15?'Athletic':M<=1.30?'Very muscular':'Too muscular';
+  const massScore=M<1?lin(M,.6,1):M>1.15?lin(M,1.45,1.15):100;
+  const headScore=(lin(headHR,.16,.125)+lin(headWR,.42,.30))/2;
+  const C=[
+   {n:'V-taper (shoulder ÷ waist)',w:25,s:lin(vt,1.15,1.6),v:vt.toFixed(2),t:'1.60+',
+    flaw:vt<1.3?'No V-taper':vt<1.45?'Weak V-taper':'Slight V-taper deficit',
+    fix:'Add width up top (lateral delts, lats, upper chest) and shrink the waist. Losing fat reveals the taper fastest.'},
+   {n:'Shoulder width ÷ height',w:13,s:lin(shH,.22,.29),v:(100*shH).toFixed(1)+'%',t:'28%+',
+    flaw:'Narrow shoulders',fix:'Lateral raises, overhead press and heavy rows build bideltoid width. Bone width is fixed, so delt size does the work.'},
+   {n:'Waist ÷ height',w:15,s:lin(whtr,.58,.44),v:whtr.toFixed(2),t:'0.45 or less',
+    flaw:whtr>=.5?'Thick waist / belly':'Waist not tight enough',fix:'Lower body fat gradually and avoid heavy loaded oblique work that thickens the waist.'},
+   {n:'Head size vs frame',w:10,s:headScore,v:(headHR*100).toFixed(1)+'% of height, '+headWR.toFixed(2)+'× shoulders',t:'13% and 0.30×',
+    flaw:'Head looks big for the frame',fix:'Head size cannot change, so widen shoulders and traps to balance it. Shorter sides and some top volume also help.'},
+   {n:'Neck thickness (neck ÷ head width)',w:12,s:lin(neckR,.55,.90),v:neckR.toFixed(2),t:'0.85+',
+    flaw:'Pencil neck',fix:'Neck curls and extensions, shrugs and heavy deadlifts thicken the neck and traps quickly.'},
+   {n:'Muscle mass balance',w:17,s:massScore,v:M.toFixed(2)+' ('+massLab+')',t:'0.95 to 1.15',
+    flaw:M<0.80?'Too skinny':M<1?'Under-muscled / slim':'Too muscular for the frame',
+    fix:M<1?'Eat in a small surplus and train progressively. Prioritize shoulders, back, chest and arms.':'Mass is past the classic aesthetic range. Keep the waist small and avoid adding more bulk.'},
+   {n:'Hips vs shoulders',w:8,s:lin(hipR,.95,.70),v:hipR.toFixed(2),t:'0.70 or less',
+    flaw:'Hips wide relative to shoulders',fix:'Build the upper body and lats. Also check the hip dots are on the hips, not on the hands or forearms.'}
+  ];
+  const overall=C.reduce((a,c)=>a+c.w*c.s,0)/100;
+  const grade=overall>=85?'Elite':overall>=72?'Great':overall>=58?'Good':overall>=45?'Average':'Needs work';
+  const col=sc_=>sc_>=75?'var(--ac)':sc_>=50?'var(--warn)':'#ef6a6a';
+  const tag=sc_=>sc_<50?['Major','t-maj']:sc_<70?['Moderate','t-mod']:sc_<85?['Minor','t-min']:['Fine','t-ok'];
+  const flaws=[...C].sort((a,b)=>a.s-b.s).slice(0,5);
+  const best=[...C].sort((a,b)=>b.s-a.s).slice(0,2).map(c=>c.n).join(' and ');
+  const bars=C.map(c=>`<div class="brow"><div class="bh"><span>${c.n}</span><b data-k="s:${c.n}">${c.s.toFixed(0)}</b></div><div class="bt"><div class="bf" style="width:${c.s.toFixed(0)}%;background:${col(c.s)}"></div></div><div class="bv" data-k="v:${c.n}">${c.v}</div><div class="bi">ideal ${c.t}</div></div>`).join('');
+  const flawHtml=flaws.map(c=>{const[tg,cls]=tag(c.s);return`<li><div class="fh"><b>${c.s>=85?c.n+' (fine)':c.flaw}</b><span class="tag ${cls}">${tg}</span><span class="fs" data-k="fs:${c.n}">${c.s.toFixed(0)}/100</span></div><div class="fm">${c.n}: ${c.v} (ideal ${c.t})</div>${c.s<85?`<div class="fx">${c.fix}</div>`:''}</li>`}).join('');
+
+  const wn=[];
+  if(sideStarted)wn.push('Side photo has '+s.length+'/'+SP.length+' dots, so it is ignored for now and depths are estimated. Finish the side dots to use measured depths.');
+  if(!(neckInRaw>0)&&!(hIn>0))wn.push('No neck size or height entered, so centimetre values use a default 38 cm neck. The scores are unaffected because they use ratios.');
+  if(X.bicep[0]>0.3*X.shoulders[0])wn.push('Upper-arm width is over 30% of shoulder width. Dots 15 and 16 should be the two edges of the same arm, not one dot on each arm.');
+  if(X.forearm[0]>X.bicep[0]*1.05||X.forearm[0]>0.25*X.shoulders[0])wn.push('Forearm looks too wide. Dots 17 and 18 should be the two edges of the same forearm.');
+  if(!(hIn>0)&&(heightNeck<160||heightNeck>205))wn.push('The neck scale implies a height of '+len(heightNeck)+', which is unusual. Enter your real height in the top bar for a reliable scale, and check the neck dots (below the jaw) and the floor dot (on the sole line).');
+  if(useSide&&X.chest[1]/X.chest[0]>0.8)wn.push('Chest depth is '+(100*X.chest[1]/X.chest[0]).toFixed(0)+'% of chest width (typically 60-75%). In the side photo the arm may be covering the torso, so the dots are on the arm. Lift the arms forward or away from the body and retake.');
+  if(useSide&&X.hips[1]/X.hips[0]>0.75)wn.push('Hip depth looks high. In the side photo check that the back dot is on the glutes, not on a hand or fist, and in the front photo that the hip dots are not on the forearms.');
+  if(hIn>0&&Math.abs(G.neck-neckCm)/neckCm>0.1)wn.push('With your real height as the scale, the neck dots give a neck girth of '+len(G.neck)+' vs the '+len(neckCm)+' you entered. Re-check the neck dots or the neck measurement.');
+  if(vt>2.0)wn.push('Shoulder ÷ waist is above 2.0, which is rare. Check the waist dots sit on the body edges and the shoulder dots on the outer deltoids.');
+
+  out.innerHTML=(wn.length?`<div class="panel warn" style="grid-column:1/-1"><h2>Check your dots</h2>${wn.join('<br>')}</div>`:'')+`
+  <div class="panel" style="grid-column:1/-1"><div class="scorehead"><div class="bigscore" style="color:${col(overall)}" data-k="overall">${overall.toFixed(0)}</div>
+    <div><div class="grade" data-k="grade">${grade}</div><div class="note" style="margin:0">Aesthetic score out of 100 <span class="live">● live</span></div>
+    <div class="note" style="margin:2px 0 0">${useSide?'Front + side: measured depths':'Front only: depths estimated from typical body proportions'}. Strongest: ${best}.</div></div></div>
+    <div class="bars">${bars}</div>
+    <div class="note">Scores compare your ratios with classic aesthetic targets (golden-ratio V-taper, 7.5-head proportions, neck about equal to head width, athletic mass range). Moving a dot updates every number here immediately.</div></div>
+
+  <div class="panel" style="grid-column:1/-1"><h2>Top 5 physique flaws</h2><ol class="fl">${flawHtml}</ol></div>
+
+  <div class="panel"><h2>3D proportions</h2><table>
+   <tr><td>Head width ÷ bideltoid</td><td>${r(head,X.shoulders[0])}</td></tr>
+   <tr><td>Bideltoid ÷ waist (width)</td><td>${r(X.shoulders[0],X.waist[0])}</td></tr>
+   <tr><td>Bideltoid ÷ waist (girth)${est}</td><td>${r(G.shoulders,G.waist)}</td></tr>
+   ${useSide?`<tr><td>Belly depth ÷ chest depth (side)</td><td>${r(X.waist[1],X.chest[1])}</td></tr>`:''}
+   <tr><td>Shoulder girth ÷ upper-arm girth</td><td>${r(G.shoulders,G.bicep)}</td></tr>
+   <tr><td>Forearm girth ÷ waist girth</td><td>${r(G.forearm,G.waist)}</td></tr>
+   <tr><td>Forearm girth ÷ upper-arm girth</td><td>${r(G.forearm,G.bicep)}</td></tr>
+   <tr><td>Chest girth ÷ waist girth</td><td>${r(G.chest,G.waist)}</td></tr>
+  </table><div class="note">Reference points: bideltoid ÷ waist about 1.62 (golden ratio); belly ÷ chest depth under 1.0 means the chest projects further than the belly.</div></div>
+
+  <div class="panel"><h2>Cross-sections (width × depth, girth, area)</h2><table><tr><th>Region</th><th>W × D</th><th>Girth</th><th>Area</th></tr>${gRows}</table>
+  <div class="note">${useSide?'':'* Depth assumed from typical depth/width ratios because no side photo is used. '}Arm depth is assumed equal to arm width. Girth uses an elliptical model.</div></div>
+
+  <div class="panel"><h2>Volume and size</h2><table>
+   <tr><td>Height used</td><td>${len(height)}</td></tr>
+   <tr><td>Height implied by neck scale</td><td>${len(heightNeck)}</td></tr>
+   <tr><td>Neck to chest</td><td>${vo(V.nc)}</td></tr>
+   <tr><td>Chest to waist</td><td>${vo(V.cw)}</td></tr>
+   <tr><td>Waist to hips</td><td>${vo(V.wh)}</td></tr>
+   <tr><td>Torso total (neck to hips)</td><td>${vo(torso)}</td></tr>
+   <tr><td>Scale used</td><td>${(sc*10).toFixed(2)} mm / px</td></tr></table></div>
+
+  <div class="panel"><h2>Health metrics from the scan</h2><table>
+   <tr><td>Body fat (US Navy)</td><td>${bf.toFixed(1)}%</td></tr>
+   <tr><td>Waist ÷ height</td><td>${whtr.toFixed(2)} ${whtr<0.5?'(healthy)':whtr<0.58?'(raised)':'(high)'}</td></tr>
+   <tr><td>Waist ÷ hip</td><td>${whr.toFixed(2)}</td></tr>${extra}</table>
+   <div class="note">Add weight and age above to unlock BMI, lean mass, FFMI and BMR. With weight entered, FFMI also feeds the muscle-mass score.</div></div>
+
+  <div class="panel" style="grid-column:1/-1"><div class="note" style="margin:0">Estimates, not medical measurements. Accuracy depends on straight posture, a camera at chest height, and precise dots. Head height (dots 1 and 2) is the shared reference between the two photos, so place those carefully.</div></div>`;
+
+  // flash every value that changed since the last render so edits are visible
+  const next={};
+  const mark=(key,el)=>{const t=el.textContent;if(prev[key]!==undefined&&prev[key]!==t)el.classList.add('chg');next[key]=t};
+  out.querySelectorAll('tr').forEach(tr=>{if(tr.children[0].tagName==='TH')return;const lab=tr.children[0].textContent;[...tr.children].slice(1).forEach((td,i)=>mark(lab+'#'+i,td))});
+  out.querySelectorAll('[data-k]').forEach(el=>mark(el.dataset.k,el));
+  prev=next;
+}
+calc();
+</script>
+
+<script>
+// ---- Auto-detect: MediaPipe Pose Landmarker (landmarks + person mask) ----
+const V0='https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14';
+let LM=null;
+const stat=t=>$('aStat').textContent=t;
+async function getLM(){
+  if(LM)return LM;
+  stat('Loading pose model (first run only)...');
+  const M=await import(V0+'/vision_bundle.mjs');
+  const fs=await M.FilesetResolver.forVisionTasks(V0+'/wasm');
+  LM=await M.PoseLandmarker.createFromOptions(fs,{baseOptions:{modelAssetPath:'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_heavy/float16/latest/pose_landmarker_heavy.task'},runningMode:'IMAGE',numPoses:1,outputSegmentationMasks:true});
+  return LM;
+}
+async function detect(v,cv,side){
+  if(!v.img)throw new Error('Upload the photo first.');
+  const lm=await getLM(),r=lm.detect(v.img);
+  if(!r.landmarks.length)throw new Error('No person found in the photo.');
+  const P=r.landmarks[0],M=r.segmentationMasks[0],mw=M.width,mh=M.height,D=M.getAsFloat32Array();
+  const cw=cv.width,ch=cv.height,px=i=>[P[i].x*cw,P[i].y*ch];
+  const on=(x,y)=>{const i=Math.round(y/ch*(mh-1)),j=Math.round(x/cw*(mw-1));return i>=0&&i<mh&&j>=0&&j<mw&&D[i*mw+j]>0.5};
+  const run=(y,x0)=>{let x=x0;if(!on(x,y)){let f=0;for(let d=1;d<cw*0.2;d++){if(on(x0+d,y)){x=x0+d;f=1;break}if(on(x0-d,y)){x=x0-d;f=1;break}}if(!f)return[x0,x0]}
+    let a=x,b=x;while(on(a-1,y))a--;while(on(b+1,y))b++;return[a,b]};
+  const up=(x,y)=>{while(y>0&&on(x,y-1))y--;return y};
+  const mid=(a,b)=>[(a[0]+b[0])/2,(a[1]+b[1])/2];
+  const nose=px(0),mo=mid(px(9),px(10)),ear=mid(px(7),px(8)),sh=[px(11),px(12)],hp=[px(23),px(24)];
+  const sm=mid(sh[0],sh[1]),hm=mid(hp[0],hp[1]),tl=hm[1]-sm[1];
+  const shS=Math.abs(sh[0][0]-sh[1][0]),hpS=Math.abs(hp[0][0]-hp[1][0]);
+  const chinY=mo[1]+1.7*(mo[1]-nose[1]),lvl=f=>sm[1]+f*tl,neckY=chinY+0.45*(sm[1]-chinY);
+  const hx=side?(nose[0]+ear[0])/2:nose[0],top=up(hx,nose[1]);
+  const pts=[[hx,top],[hx,chinY]];
+  if(!side){
+    const mx=(sm[0]+hm[0])/2;
+    const row=(y,half,x0=mx)=>{let[a,b]=run(y,x0);a=Math.max(a,mx-half);b=Math.min(b,mx+half);return[[a,y],[b,y]]};
+    const ey=(P[2].y+P[5].y)/2*ch;
+    pts.push(...row(ey,cw,nose[0]),...row(neckY,shS*0.25),...row(lvl(0.10),cw),...row(lvl(0.30),shS*0.52),...row(lvl(0.62),shS*0.47),...row(hm[1]+0.04*tl,Math.max(hpS*0.7,shS*0.47)));
+    // arm: the arm on the image-left, thickest part scanned perpendicular to the bone
+    const k=sh[0][0]<sh[1][0]?0:1,S=sh[k],E=px(13+k),W=px(15+k);
+    const arm=(A,B,t,cap)=>{const dx=B[0]-A[0],dy=B[1]-A[1],L=Math.hypot(dx,dy),c=[A[0]+t*dx,A[1]+t*dy],n=[-dy/L,dx/L],e=[];
+      for(const sg of[1,-1]){let q=0;while(q<cap*L&&on(c[0]+sg*n[0]*q,c[1]+sg*n[1]*q))q+=0.5;e.push([c[0]+sg*n[0]*q,c[1]+sg*n[1]*q])}return e};
+    pts.push(...arm(S,E,0.45,0.30),...arm(E,W,0.30,0.22));
+    let fi=27,fy=0;for(const i of[27,28,29,30,31,32])if(P[i].y>fy){fy=P[i].y;fi=i}
+    let fx=P[fi].x*cw,y=fy*ch;while(on(fx,y+1))y++;pts.push([fx,y]);
+  }else{
+    const dir=nose[0]>ear[0]?1:-1,ax=(sm[0]+hm[0])/2;
+    const row=(y,maxD,x0=ax)=>{const[a,b]=run(y,x0),f=dir>0?b:a;let bk=dir>0?a:b;if(b-a>maxD)bk=f-dir*maxD;return[[f,y],[bk,y]]};
+    pts.push(...row(neckY,0.30*tl,(ear[0]+sm[0])/2),...row(lvl(0.30),0.62*tl),...row(lvl(0.62),0.55*tl),...row(hm[1]+0.04*tl,0.60*tl));
+  }
+  M.close&&M.close();
+  return pts;
+}
+async function auto(v,cv,side,btn){
+  btn.disabled=true;
+  try{const p=await detect(v,cv,side);v.pts=p;v.draw();stat('Dots placed. Check each one and drag any that sit on an arm, hair or background.')}
+  catch(e){stat('Auto-detect failed: '+e.message+' Open the downloaded file from your computer in Chrome, Edge or Safari (not the in-app preview); it also needs internet access.')}
+  btn.disabled=false;
+}
+$('aF').onclick=()=>auto(F,$('cF'),false,$('aF'));
+$('aS').onclick=()=>auto(S,$('cS'),true,$('aS'));
+</script>
+</body>
+</html>
