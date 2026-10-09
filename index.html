@@ -61,6 +61,12 @@ ol.fl{margin:0;padding-left:20px;display:grid;gap:12px}
   <div><label for="sex">Sex (for body fat)</label><select id="sex"><option value="m">Male</option><option value="f">Female</option></select></div>
   <div><label for="wt">Weight (optional)</label><input id="wt" type="number" step="0.1" placeholder="kg / lb"></div>
   <div><label for="hgt">Height (recommended)</label><input id="hgt" type="number" step="0.1" placeholder="cm / in"></div>
+  <div><label for="shoe">Footwear (heel + sole lift)</label><select id="shoe" style="width:210px">
+    <option value="0">Barefoot</option><option value="0.3">Socks only (+0.3 cm)</option><option value="1.5">Sandals / flip-flops (+1.5 cm)</option>
+    <option value="2">Casual / canvas shoes (+2 cm)</option><option value="3">Sneakers / trainers (+3 cm)</option><option value="3.5">Cushioned running shoes (+3.5 cm)</option>
+    <option value="3">Dress shoes (+3 cm)</option><option value="3.5">Work / combat boots (+3.5 cm)</option><option value="4">Hiking boots (+4 cm)</option>
+    <option value="4.5">Cuban-heel / Chelsea boots (+4.5 cm)</option><option value="6">Platform / elevator shoes (+6 cm)</option></select></div>
+  <div><label for="shc">Shoe lift override</label><input id="shc" type="number" step="0.1" placeholder="cm / in"></div>
   <div><label for="age">Age (optional)</label><input id="age" type="number" placeholder="years"></div>
   <div><label for="wr">Wrist tape (optional)</label><input id="wr" type="number" step="0.1" placeholder="cm / in"></div>
   <div><label for="ch">Chest tape (optional)</label><input id="ch" type="number" step="0.1" placeholder="cm / in"></div>
@@ -84,7 +90,7 @@ ol.fl{margin:0;padding-left:20px;display:grid;gap:12px}
 </div>
 
 <script>
-const FP=[["Top of head",0],["Bottom of chin (lowest point of the jaw)",0],["Head, left edge",0],["Head, right edge",0],["Neck, left edge (below the jaw, narrowest point)",0],["Neck, right edge (same height)",0],["Left shoulder (outer deltoid)",0],["Right shoulder (outer deltoid)",0],["Chest, left edge (armpit level)",0],["Chest, right edge",0],["Waist, left edge (navel level)",0],["Waist, right edge",0],["Hips, left edge (widest)",0],["Hips, right edge",0],["LEFT arm bicep: outer edge (thickest point)",0],["SAME left arm bicep: inner edge (same height, same arm only)",0],["SAME left arm forearm: outer edge (thickest point)",0],["SAME left arm forearm: inner edge (same arm only)",0],["LEFT wrist: outer edge (narrowest point above the hand)",0],["SAME wrist: inner edge (same height, same wrist only)",0],["LEFT thigh: outer edge (upper third, widest point)",0],["SAME thigh: inner edge (same leg only, not the other leg)",0],["LEFT calf: outer edge (thickest point)",0],["SAME calf: inner edge (same leg only)",0],["LEFT ankle: outer edge (narrowest point above the foot)",0],["SAME ankle: inner edge (same height, same ankle)",0],["Crotch (where the inner thighs meet)",0],["Floor under feet",0]];
+const FP=[["Top of head",0],["Bottom of chin (lowest point of the jaw)",0],["Head, left edge",0],["Head, right edge",0],["Neck, left edge (below the jaw, narrowest point)",0],["Neck, right edge (same height)",0],["Left shoulder (outer deltoid)",0],["Right shoulder (outer deltoid)",0],["Chest, left edge (armpit level)",0],["Chest, right edge",0],["Waist, left edge (navel level)",0],["Waist, right edge",0],["Hips, left edge (widest)",0],["Hips, right edge",0],["LEFT arm bicep: outer edge (thickest point)",0],["SAME left arm bicep: inner edge (same height, same arm only)",0],["SAME left arm forearm: outer edge (thickest point)",0],["SAME left arm forearm: inner edge (same arm only)",0],["LEFT wrist: outer edge (narrowest point above the hand)",0],["SAME wrist: inner edge (same height, same wrist only)",0],["LEFT thigh: outer edge (upper third, widest point)",0],["SAME thigh: inner edge (same leg only, not the other leg)",0],["LEFT calf: outer edge (thickest point)",0],["SAME calf: inner edge (same leg only)",0],["LEFT ankle: outer edge (narrowest point above the foot)",0],["SAME ankle: inner edge (same height, same ankle)",0],["Crotch (where the inner thighs meet)",0],["Floor under feet (bottom of the shoe sole if wearing shoes)",0]];
 const SP=[["Top of head"],["Bottom of chin"],["Neck, front"],["Neck, back"],["Chest, front (nipple level)"],["Chest, back"],["Belly, front (navel level)"],["Belly, back"],["Hips, front"],["Hips, back"]];
 const FL=[[0,1],[2,3],[4,5],[6,7],[8,9],[10,11],[12,13],[14,15],[16,17],[18,19],[20,21],[22,23],[24,25]], SL=[[0,1],[2,3],[4,5],[6,7],[8,9]];
 const $=id=>document.getElementById(id);
@@ -121,7 +127,7 @@ function View(cv,fileEl,promptEl,names,links){
 }
 const F=View($('cF'),$('fF'),$('pF'),FP,FL), S=View($('cS'),$('fS'),$('pS'),SP,SL);
 $('uF').onclick=F.undo;$('rF').onclick=F.reset;$('uS').onclick=S.undo;$('rS').onclick=S.reset;
-['neck','unit','sex','wt','age','hgt','wr','ch','th','cf','an'].forEach(i=>$(i).addEventListener('input',calc));
+['neck','unit','sex','wt','age','hgt','wr','ch','th','cf','an','shoe','shc'].forEach(i=>$(i).addEventListener('input',calc));
 
 const d=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
 const ram=(a,b)=>Math.PI*(3*(a+b)-Math.sqrt((3*a+b)*(a+3*b)));
@@ -144,9 +150,12 @@ function calc(){
   const DR={neck:.92,chest:.66,waist:.62,hips:.62};
   const dp={neck:useSide?sd(2,3):fw(4,5)*DR.neck,chest:useSide?sd(4,5):fw(8,9)*DR.chest,waist:useSide?sd(6,7):fw(10,11)*DR.waist,hips:useSide?sd(8,9):fw(12,13)*DR.hips};
   const scN=neckCm/ram(fw(4,5)/2,dp.neck/2);
-  const pxH=Math.max(Math.abs(f[27][1]-f[0][1]),1),hIn=parseFloat($('hgt').value);
+  const pxH=Math.max(Math.abs(f[27][1]-f[0][1]),1),hIn=parseFloat($('hgt').value);   // head top to floor, shoes included
+  const shoeSel=$('shoe'),shoeName=shoeSel.selectedOptions[0].text.replace(/\s*\(\+.*\)/,'');
+  const shcRaw=parseFloat($('shc').value);
+  const shoeCm=shcRaw>=0?(imp?shcRaw*2.54:shcRaw):parseFloat(shoeSel.value);   // lift in cm
   const heightNeck=pxH*scN;
-  const sc=hIn>0?(imp?hIn*2.54:hIn)/pxH:scN;      // cm per front pixel; real height wins if given
+  const sc=hIn>0?((imp?hIn*2.54:hIn)+shoeCm)/pxH:scN;   // entered height is barefoot; the photo shows barefoot + shoe lift      // cm per front pixel; real height wins if given
   const L=px=>px*sc;
   const X={
     neck:[L(fw(4,5)),L(dp.neck)],shoulders:[L(fw(6,7)),L(dp.chest)],
@@ -160,7 +169,8 @@ function calc(){
   const hNC=L(Math.abs(y(8,9)-y(4,5))),hCW=L(Math.abs(y(10,11)-y(8,9))),hWH=L(Math.abs(y(12,13)-y(10,11)));
   const V={nc:frus(hNC,A.neck,A.chest),cw:frus(hCW,A.chest,A.waist),wh:frus(hWH,A.waist,A.hips)};
   const torso=V.nc+V.cw+V.wh;
-  const height=L(pxH);
+  const heightShoes=L(pxH), height=heightShoes-shoeCm;   // all height-based ratios use barefoot height
+  const shPx=shoeCm/sc, pxB=Math.max(pxH-shPx,1);
   const head=L(fw(2,3));
 
   const len=v=>(imp?v/2.54:v).toFixed(1)+(imp?' in':' cm');
@@ -197,8 +207,8 @@ function calc(){
   const cwR=Gc/Gw, awR=G.bicep/Gw, acR=G.bicep/Gc, tcR=Gt/Gc, naR=G.neck/G.bicep, faR=G.forearm/G.bicep;
   const near=(v,lo,hi)=>{const mid=(lo+hi)/2;let dev=v<lo?(lo-v)/mid:v>hi?(v-hi)/mid*0.5:0;return cl(100*(1-dev/0.35))};
   const crotchY=f[26][1], shY=y(6,7);
-  const torsoPx=Math.max(crotchY-shY,1), legPx=Math.max(f[27][1]-crotchY,1);
-  const tlR=legPx/torsoPx, legH=legPx/pxH;
+  const torsoPx=Math.max(crotchY-shY,1), legPxShoes=Math.max(f[27][1]-crotchY,1), legPx=Math.max(legPxShoes-shPx,1);
+  const tlR=legPx/torsoPx, legH=legPx/pxB;
   const ntR=Math.max(shY-f[1][1],0)/fw(0,1);
   const caR=Gk/Ga, laR=Gt/G.bicep, clR=Gk/G.bicep;
   const gap=v=>(v>=0?'+':'−')+len(Math.abs(v));
@@ -206,7 +216,7 @@ function calc(){
   // ---------- aesthetic scoring (all ratios are scale-free) ----------
   const lin=(v,bad,good)=>cl((v-bad)/(good-bad)*100);      // bad -> 0, good -> 100 (works in either direction)
   const vt=X.shoulders[0]/X.waist[0], shH=X.shoulders[0]/height;
-  const headHR=fw(0,1)/pxH, headWR=fw(2,3)/fw(6,7), neckR=fw(4,5)/fw(2,3), hipR=fw(12,13)/fw(6,7);
+  const headHR=fw(0,1)/pxB, headWR=fw(2,3)/fw(6,7), neckR=fw(4,5)/fw(2,3), hipR=fw(12,13)/fw(6,7);
   let M=(G.bicep/height/0.22+Gc/height/0.58+shH/0.29)/3;   // muscle-mass index: 1.0 = athletic ideal
   const Mframe=M; if(ffmi>0)M=(M+ffmi/22)/2;
   const massLab=M<0.80?'Too skinny':M<0.92?'Lean / slim':M<=1.15?'Athletic':M<=1.30?'Very muscular':'Too muscular';
@@ -232,10 +242,11 @@ function calc(){
    tl:[[1.15,'Corgi build (long torso, stubby legs)',0],[1.30,'Long torso, short legs',1],[1.50,'Balanced torso and legs',2],[1.65,'Long legs, short torso',1],[99,'Stilt legs',0]],
    lh:[[.43,'Short legs',0],[.46,'Slightly short legs',1],[.51,'Good leg length',2],[99,'Long legs',2]],
    na:[[.85,'Neck lags behind arms',1],[1.10,'Neck matches arms',2],[99,'Neck bigger than arms',2]],
+   sl:[[.002,'Barefoot honest',2],[.012,'Almost no lift',2],[.022,'Low-profile footwear',2],[.032,'Standard shoe boost',1],[.042,'Sneaker-head boost',1],[99,'Elevator-shoe energy (the tape is being fooled)',0]],
    fa:[[.72,'Small forearms',1],[.85,'Balanced forearms',2],[99,'Big forearms',2]]
   };
   let headV=band(headHR,BD.hd);if(headV.q===2&&headWR>.38)headV={l:'Head reads big next to narrow shoulders',q:1};
-  const V_={vt:band(vt,BD.vt),sh:band(shH,BD.sh),wa:band(whtr,BD.wa),hd:headV,nk:band(neckR,BD.nk),ms:band(M,BD.ms),hp:band(hipR,BD.hp),cw:band(cwR,BD.cw),aw:band(awR,BD.aw),tc:band(tcR,BD.tc),nt:band(ntR,BD.nt),ca:band(caR,BD.ca),la:band(laR,BD.la),cl:band(clR,BD.cl),tl:band(tlR,BD.tl),lh:band(legH,BD.lh),na:band(naR,BD.na),fa:band(faR,BD.fa)};
+  const V_={vt:band(vt,BD.vt),sh:band(shH,BD.sh),wa:band(whtr,BD.wa),hd:headV,nk:band(neckR,BD.nk),ms:band(M,BD.ms),hp:band(hipR,BD.hp),cw:band(cwR,BD.cw),aw:band(awR,BD.aw),tc:band(tcR,BD.tc),nt:band(ntR,BD.nt),ca:band(caR,BD.ca),la:band(laR,BD.la),cl:band(clR,BD.cl),tl:band(tlR,BD.tl),lh:band(legH,BD.lh),na:band(naR,BD.na),fa:band(faR,BD.fa),sl:band(shoeCm/height,BD.sl)};
   const laScore=(near(laR,1.4,1.6)+near(clR,.9,1.1))/2;
   const C=[
    {n:'V-taper (shoulder ÷ waist)',w:16,s:lin(vt,1.15,1.6),v:vt.toFixed(2),t:'1.60+',vd:V_.vt,
@@ -282,7 +293,7 @@ function calc(){
   if(!(neckInRaw>0)&&!(hIn>0))wn.push('No neck size or height entered, so centimetre values use a default 38 cm neck. The scores are unaffected because they use ratios.');
   if(X.bicep[0]>0.3*X.shoulders[0])wn.push('Upper-arm width is over 30% of shoulder width. Dots 15 and 16 should be the two edges of the same arm, not one dot on each arm.');
   if(X.forearm[0]>X.bicep[0]*1.05||X.forearm[0]>0.25*X.shoulders[0])wn.push('Forearm looks too wide. Dots 17 and 18 should be the two edges of the same forearm.');
-  if(!(hIn>0)&&(heightNeck<160||heightNeck>205))wn.push('The neck scale implies a height of '+len(heightNeck)+', which is unusual. Enter your real height in the top bar for a reliable scale, and check the neck dots (below the jaw) and the floor dot (on the sole line).');
+  if(!(hIn>0)&&(heightNeck-shoeCm<160||heightNeck-shoeCm>205))wn.push('The neck scale implies a barefoot height of '+len(heightNeck-shoeCm)+', which is unusual. Enter your real height in the top bar for a reliable scale, and check the neck dots (below the jaw) and the floor dot (on the sole line).');
   if(useSide&&X.chest[1]/X.chest[0]>0.8)wn.push('Chest depth is '+(100*X.chest[1]/X.chest[0]).toFixed(0)+'% of chest width (typically 60-75%). In the side photo the arm may be covering the torso, so the dots are on the arm. Lift the arms forward or away from the body and retake.');
   if(useSide&&X.hips[1]/X.hips[0]>0.75)wn.push('Hip depth looks high. In the side photo check that the back dot is on the glutes, not on a hand or fist, and in the front photo that the hip dots are not on the forearms.');
   if(hIn>0&&Math.abs(G.neck-neckCm)/neckCm>0.1)wn.push('With your real height as the scale, the neck dots give a neck girth of '+len(G.neck)+' vs the '+len(neckCm)+' you entered. Re-check the neck dots or the neck measurement.');
@@ -310,7 +321,20 @@ function calc(){
    <tr><td>Leg length ÷ height</td><td>${(legH*100).toFixed(1)}%</td><td>47 to 51%</td><td style="color:${qcol(V_.lh.q)}">${V_.lh.l}</td></tr>
    <tr><td>Neck ÷ upper arm</td><td>${naR.toFixed(2)}</td><td>about 1.00</td><td style="color:${qcol(V_.na.q)}">${V_.na.l}</td></tr>
    <tr><td>Forearm ÷ upper arm</td><td>${faR.toFixed(2)}</td><td>about 0.80</td><td style="color:${qcol(V_.fa.q)}">${V_.fa.l}</td></tr>
-  </table><div class="note">The last four rows are shown for reference and are not part of the score. Labels are playful on purpose; the numbers behind them are what matter.</div></div>
+   <tr><td>Shoe lift ÷ height (${shoeName})</td><td>${(100*shoeCm/height).toFixed(1)}%</td><td>0 to 2%</td><td style="color:${qcol(V_.sl.q)}">${V_.sl.l}</td></tr>
+  </table><div class="note">The last five rows are shown for reference and are not part of the score. Labels are playful on purpose; the numbers behind them are what matter.</div></div>
+
+  <div class="panel"><h2>Shoes and height</h2><table>
+   <tr><td>Footwear</td><td>${shoeName}</td></tr>
+   <tr><td>Lift removed (heel + sole)</td><td>${len(shoeCm)}</td></tr>
+   <tr><td>Height in the photo (with shoes)</td><td>${len(heightShoes)}</td></tr>
+   <tr><td>Barefoot height (corrected)</td><td>${len(height)}</td></tr>
+   <tr><td>Shoe lift ÷ barefoot height</td><td>${(100*shoeCm/height).toFixed(1)}%</td></tr>
+   ${hIn>0?`<tr><td>Height you entered</td><td>${len(imp?hIn*2.54:hIn)}</td></tr>`:`<tr><td>Height source</td><td>neck scale</td></tr>`}
+   <tr><td>Leg length: with shoes / barefoot</td><td>${len(L(legPxShoes))} / ${len(L(legPx))}</td></tr>
+   <tr><td>Legs ÷ torso: with shoes / barefoot</td><td>${(legPxShoes/torsoPx).toFixed(2)} / ${tlR.toFixed(2)}</td></tr>
+   <tr><td>Legs ÷ height: with shoes / barefoot</td><td>${(100*legPxShoes/pxH).toFixed(1)}% / ${(100*legH).toFixed(1)}%</td></tr>
+  </table><div class="note">Lift is a typical heel plus sole height for the shoe type (within about 1 cm), so pick the closest type or type your own in the override box. Put the floor dot on the bottom of the sole. Every height-based ratio and score uses the barefoot height.</div></div>
 
   <div class="panel"><h2>3D proportions</h2><table>
    <tr><td>Head width ÷ bideltoid</td><td>${r(head,X.shoulders[0])}</td></tr>
@@ -347,10 +371,10 @@ function calc(){
   <div class="note">${useSide?'':'* Depth assumed from typical depth/width ratios because no side photo is used. '}* Wrist, thigh, calf and ankle depth are always assumed. Arm depth is assumed equal to arm width. Girth uses an elliptical model.</div></div>
 
   <div class="panel"><h2>Volume and size</h2><table>
-   <tr><td>Height used</td><td>${len(height)}</td></tr>
+   <tr><td>Height used (barefoot)</td><td>${len(height)}</td></tr>
    <tr><td>Torso height (shoulder line to crotch)</td><td>${len(L(torsoPx))}</td></tr>
    <tr><td>Leg length (crotch to floor)</td><td>${len(L(legPx))}</td></tr>
-   <tr><td>Height implied by neck scale</td><td>${len(heightNeck)}</td></tr>
+   <tr><td>Barefoot height implied by neck scale</td><td>${len(heightNeck-shoeCm)}</td></tr>
    <tr><td>Neck to chest</td><td>${vo(V.nc)}</td></tr>
    <tr><td>Chest to waist</td><td>${vo(V.cw)}</td></tr>
    <tr><td>Waist to hips</td><td>${vo(V.wh)}</td></tr>
